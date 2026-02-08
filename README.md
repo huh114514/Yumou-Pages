@@ -1,7 +1,3 @@
-# Yumou-Pages
+# YuMou-Pages
 
-一个利用github pages的个人网站
-
-
-
-
+[English](readme/readme_en.md/) ‖ [简体中文](./readme/readme_zh-cn.md) 
