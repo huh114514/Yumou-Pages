@@ -1,0 +1,226 @@
+name: 中文提交自动发布
+
+on:
+  push:
+    branches:
+      - main  # 你可以改为你的主分支名
+
+jobs:
+  analyze-commit-and-release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # 获取完整历史记录
+          fetch-tags: true
+
+      - name: 分析最近提交
+        id: analyze-commits
+        run: |
+          # 获取最近的有效提交（跳过英文update提交）
+          echo "正在分析提交记录..."
+          
+          # 获取最近的两个提交
+          COMMITS=$(git log --oneline --no-merges -10)
+          echo "最近提交:"
+          echo "$COMMITS"
+          echo ""
+          
+          # 过滤掉英文update提交，找到最后一个有效的中文提交
+          LAST_VALID_COMMIT=""
+          LAST_VALID_COMMIT_FULL=""
+          IFS=$'\n'
+          for commit in $(git log --format="%H %s" --no-merges -5); do
+            COMMIT_HASH=$(echo $commit | cut -d' ' -f1)
+            COMMIT_MSG=$(echo $commit | cut -d' ' -f2-)
+            
+            # 跳过英文update提交
+            if [[ "$COMMIT_MSG" =~ ^(update|Update|UPDATE|fix|Fix|FIX|修改|调整).* ]] && \
+               [[ ! "$COMMIT_MSG" =~ [\u4e00-\u9fff] ]]; then  # 不包含中文
+              echo "跳过英文update提交: $COMMIT_MSG"
+              continue
+            fi
+          
+            # 找到第一个有效提交就停止
+            LAST_VALID_COMMIT="$COMMIT_MSG"
+            LAST_VALID_COMMIT_FULL=$(git log -1 --format="%H%n%s%n%b" $COMMIT_HASH)
+            break
+          done
+          
+          if [ -z "$LAST_VALID_COMMIT" ]; then
+            echo "没有找到有效的中文提交，使用最新的提交"
+            LAST_VALID_COMMIT=$(git log -1 --format="%s" --no-merges)
+            LAST_VALID_COMMIT_FULL=$(git log -1 --format="%H%n%s%n%b" HEAD)
+          fi
+          
+          echo "使用的有效提交: $LAST_VALID_COMMIT"
+          
+          # 判断版本更新类型
+          VERSION_BUMP="patch"  # 默认小更新
+          
+          if [[ "$LAST_VALID_COMMIT" =~ "大更新" ]]; then
+            VERSION_BUMP="major"
+            echo "检测到大改，版本递增类型: major"
+          elif [[ "$LAST_VALID_COMMIT" =~ "乱改" ]] || \
+               [[ "$LAST_VALID_COMMIT" =~ "不兼容" ]] || \
+               [[ "$LAST_VALID_COMMIT" =~ "重大变更" ]]; then
+            VERSION_BUMP="major"
+            echo "检测到乱改，版本递增类型: major"
+          elif [[ "$LAST_VALID_COMMIT" =~ "做了个" ]] || \
+               [[ "$LAST_VALID_COMMIT" =~ "写了个" ]] || \
+               [[ "$LAST_VALID_COMMIT" =~ "中更新" ]] || \
+               [[ "$LAST_VALID_COMMIT" =~ "新增" ]] || \
+               [[ "$LAST_VALID_COMMIT" =~ "mid" ]]; then
+            VERSION_BUMP="minor"
+            echo "检测到功能更新，版本递增类型: minor"
+          elif [[ "$LAST_VALID_COMMIT" =~ "修了个" ]] || \
+               [[ "$LAST_VALID_COMMIT" =~ "修复" ]] || \
+               [[ "$LAST_VALID_COMMIT" =~ "小更新" ]] || \
+               [[ "$LAST_VALID_COMMIT" =~ "bug" ]] || \
+               [[ "$LAST_VALID_COMMIT" =~ "Bug" ]]; then
+            VERSION_BUMP="patch"
+            echo "检测到bug修复，版本递增类型: patch"
+          else
+            echo "使用默认版本递增类型: patch"
+          fi
+          
+          # 输出结果
+          echo "commit_message=$LAST_VALID_COMMIT" >> $GITHUB_OUTPUT
+          echo "version_bump=$VERSION_BUMP" >> $GITHUB_OUTPUT
+          echo "commit_hash=$(echo "$LAST_VALID_COMMIT_FULL" | head -1)" >> $GITHUB_OUTPUT
+          echo "commit_body=$(echo "$LAST_VALID_COMMIT_FULL" | tail -n +3 | head -10)" >> $GITHUB_OUTPUT
+
+      - name: 获取或创建版本号
+        id: version
+        run: |
+          # 获取最新的标签
+          LATEST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "v0.0.0")
+          echo "最新标签: $LATEST_TAG"
+          
+          # 提取版本号
+          CURRENT_VERSION="${LATEST_TAG#v}"
+          if [ "$CURRENT_VERSION" = "0.0.0" ]; then
+            # 没有标签，尝试从package.json读取
+            if [ -f "package.json" ]; then
+              CURRENT_VERSION=$(node -p "require('./package.json').version" 2>/dev/null || echo "0.1.0")
+            else
+              CURRENT_VERSION="0.1.0"
+            fi
+          fi
+          
+          echo "当前版本: $CURRENT_VERSION"
+          
+          # 递增版本
+          IFS='.' read -r MAJOR MINOR PATCH <<< "$CURRENT_VERSION"
+          
+          case "${{ steps.analyze-commits.outputs.version_bump }}" in
+            "major")
+              MAJOR=$((MAJOR + 1))
+              MINOR=0
+              PATCH=0
+              ;;
+            "minor")
+              MINOR=$((MINOR + 1))
+              PATCH=0
+              ;;
+            "patch")
+              PATCH=$((PATCH + 1))
+              ;;
+          esac
+          
+          NEW_VERSION="$MAJOR.$MINOR.$PATCH"
+          echo "新版本: $NEW_VERSION"
+          
+          # 输出变量
+          echo "current_version=$CURRENT_VERSION" >> $GITHUB_OUTPUT
+          echo "new_version=$NEW_VERSION" >> $GITHUB_OUTPUT
+          echo "tag_name=v$NEW_VERSION" >> $GITHUB_OUTPUT
+
+      - name: 获取最近的所有有效提交（用于Release说明）
+        id: all_commits
+        run: |
+          # 获取最近5个有效提交（跳过英文update）
+          ALL_COMMITS=""
+          COMMIT_COUNT=0
+          
+          for commit in $(git log --format="%H" --no-merges -10); do
+            COMMIT_MSG=$(git log -1 --format="%s" $commit)
+            
+            # 跳过英文update提交
+            if [[ "$COMMIT_MSG" =~ ^(update|Update|UPDATE).* ]] && \
+               [[ ! "$COMMIT_MSG" =~ [\u4e00-\u9fff] ]]; then
+              continue
+            fi
+            
+            COMMIT_DATE=$(git log -1 --format="%ad" --date=short $commit)
+            COMMIT_AUTHOR=$(git log -1 --format="%an" $commit)
+            
+            ALL_COMMITS+="• $COMMIT_DATE $COMMIT_AUTHOR: $COMMIT_MSG"$'\n'
+            COMMIT_COUNT=$((COMMIT_COUNT + 1))
+            
+            if [ $COMMIT_COUNT -ge 5 ]; then
+              break
+            fi
+          done
+          
+          if [ -z "$ALL_COMMITS" ]; then
+            ALL_COMMITS="• 暂无有效提交记录"
+          fi
+          
+          echo "all_commits<<EOF" >> $GITHUB_OUTPUT
+          echo "$ALL_COMMITS" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+      - name: 更新package.json版本（如果存在）
+        if: hashFiles('package.json') == ''
+        run: |
+          if [ -f "package.json" ]; then
+            npm version ${{ steps.version.outputs.new_version }} --no-git-tag-version --allow-same-version
+            echo "已更新package.json版本"
+          fi
+
+      - name: 创建Git标签
+        run: |
+          git tag -a "v${{ steps.version.outputs.new_version }}" -m "${{ steps.analyze-commits.outputs.commit_message }}"
+          git push origin "v${{ steps.version.outputs.new_version }}"
+
+      - name: 创建GitHub Release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: v${{ steps.version.outputs.new_version }}
+          name: 版本 v${{ steps.version.outputs.new_version }}
+          body: |
+            ## 📝 更新内容
+            
+            **${{ steps.analyze-commits.outputs.commit_message }}**
+            
+            ${{ steps.analyze-commits.outputs.commit_body }}
+            
+            ---
+            
+            ## 📋 最近更新记录
+            
+            ${{ steps.all_commits.outputs.all_commits }}
+            
+            ---
+            
+            ### 📊 版本信息
+            
+            | 项目 | 值 |
+            |------|-----|
+            | **版本号** | v${{ steps.version.outputs.new_version }} |
+            | **更新类型** | ${{ steps.analyze-commits.outputs.version_bump }} |
+            | **上一个版本** | v${{ steps.version.outputs.current_version }} |
+            | **自动发布时间** | $(date '+%Y-%m-%d %H:%M:%S') |
+            
+            ---
+            
+            *🤖 此Release由GitHub Actions自动生成*  
+            *📌 基于提交: `${{ steps.analyze-commits.outputs.commit_hash }}`*
+          draft: false
+          prerelease: false
+          generate_release_notes: false
