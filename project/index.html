@@ -437,38 +437,49 @@
             `;
             
             try {
-        // 加载对应字母的JSON文件
-        const response = await fetch(`ProjectList/${letter.toLowerCase()}.json`);
-        
-        // GitHub Pages特殊处理：检查实际内容而不是状态码
-        const contentType = response.headers.get('content-type');
-        const url = response.url;
-        
-        // 判断是否为404页面（GitHub Pages的404页面通常包含特定内容或路径）
-        if (url.includes('404') || 
-            (contentType && contentType.includes('text/html')) || 
-            !contentType?.includes('application/json')) {
-            
-            console.log(`文件 ProjectList/${letter.toLowerCase()}.json 不存在`);
-            showEmptyApps(letter);
-            return;
-        }
-        
-        // 尝试解析JSON
-        let data;
-        try {
-            data = await response.json();
-        } catch (e) {
-            // 如果解析JSON失败，说明返回的是404页面
-            showEmptyApps(letter);
-            return;
-        }
-        
-        // 检查apps数组是否为空
-        if (!data.apps || data.apps.length === 0) {
-            showEmptyApps(letter);
-            return;
-        }
+                // 加载对应字母的JSON文件
+                const response = await fetch(`ProjectList/${letter.toLowerCase()}.json`);
+                
+                if (!response.ok) {
+                    if (response.status === 404) {
+                        // JSON文件不存在（可能为空）
+                        showEmptyApps(letter);
+                    } else {
+                        throw new Error(`加载失败: ${response.status}`);
+                    }
+                    return;
+                }
+                
+                const data = await response.json();
+                
+                // 检查apps数组是否为空
+                if (!data.apps || data.apps.length === 0) {
+                    showEmptyApps(letter);
+                    return;
+                }
+                
+                // 清空应用网格
+                appsGrid.innerHTML = '';
+                
+                // 为每个应用加载详细信息并创建卡片
+                const appPromises = data.apps.map(appName => 
+                    loadAppInfo(appName).then(appInfo => createAppCard(appInfo, appName))
+                );
+                
+                // 等待所有应用信息加载完成
+                const appCards = await Promise.allSettled(appPromises);
+                
+                // 添加成功加载的应用卡片
+                appCards.forEach(result => {
+                    if (result.status === 'fulfilled' && result.value) {
+                        appsGrid.appendChild(result.value);
+                    }
+                });
+                
+                // 如果没有成功加载的应用，显示空状态
+                if (appsGrid.children.length === 0) {
+                    showEmptyApps(letter);
+                }
                 
             } catch (error) {
                 console.error('加载应用列表时出错:', error);
