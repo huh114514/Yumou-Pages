@@ -395,240 +395,242 @@
     </div>
 
     <script>
-        // 初始化字母网格
-        function initLetters() {
-            const lettersGrid = document.getElementById('letters-grid');
-            lettersGrid.innerHTML = '';
-            
-            // 生成A-Z的字母按钮
-            for (let i = 65; i <= 90; i++) {
-                const letter = String.fromCharCode(i);
-                const letterBtn = document.createElement('button');
-                letterBtn.className = 'letter-btn';
-                letterBtn.textContent = letter;
-                letterBtn.dataset.letter = letter;
-                
-                letterBtn.addEventListener('click', () => {
-                    loadAppsByLetter(letter);
-                });
-                
-                lettersGrid.appendChild(letterBtn);
-            }
-        }
+    // 初始化字母网格
+    function initLetters() {
+        const lettersGrid = document.getElementById('letters-grid');
+        lettersGrid.innerHTML = '';
         
-        // 根据字母加载应用
-        async function loadAppsByLetter(letter) {
-            const lettersSection = document.getElementById('letters-section');
-            const appsSection = document.getElementById('apps-section');
-            const appsGrid = document.getElementById('apps-grid');
-            const currentLetter = document.getElementById('current-letter');
+        // 生成A-Z的字母按钮
+        for (let i = 65; i <= 90; i++) {
+            const letter = String.fromCharCode(i);
+            const letterBtn = document.createElement('button');
+            letterBtn.className = 'letter-btn';
+            letterBtn.textContent = letter;
+            letterBtn.dataset.letter = letter;
             
-            // 切换显示区域
-            lettersSection.style.display = 'none';
-            appsSection.classList.remove('hidden');
-            currentLetter.textContent = letter;
+            // ✅ 修复：使用dataset.letter来获取正确的字母
+            letterBtn.addEventListener('click', (e) => {
+                const clickedLetter = e.currentTarget.dataset.letter;
+                loadAppsByLetter(clickedLetter);
+            });
             
-            // 显示加载状态
-            appsGrid.innerHTML = `
-                <div class="loading">
-                    <div class="loading-spinner"></div>
-                    <p>正在加载应用列表...</p>
-                </div>
-            `;
+            lettersGrid.appendChild(letterBtn);
+        }
+    }
+    
+    // 根据字母加载应用
+    async function loadAppsByLetter(letter) {
+        const lettersSection = document.getElementById('letters-section');
+        const appsSection = document.getElementById('apps-section');
+        const appsGrid = document.getElementById('apps-grid');
+        const currentLetter = document.getElementById('current-letter');
+        
+        // 切换显示区域
+        lettersSection.style.display = 'none';
+        appsSection.classList.remove('hidden');
+        currentLetter.textContent = letter;
+        
+        // 显示加载状态
+        appsGrid.innerHTML = `
+            <div class="loading">
+                <div class="loading-spinner"></div>
+                <p>正在加载应用列表...</p>
+            </div>
+        `;
+        
+        try {
+            // 加载对应字母的JSON文件
+            const response = await fetch(`ProjectList/${letter.toLowerCase()}.json`);
             
-            try {
-                // 加载对应字母的JSON文件
-                const response = await fetch(`ProjectList/${letter.toLowerCase()}.json`);
-                
-                if (!response.ok) {
-                    if (response.status === 404) {
-                        // JSON文件不存在（可能为空）
-                        showEmptyApps(letter);
-                    } else {
-                        throw new Error(`加载失败: ${response.status}`);
-                    }
-                    return;
-                }
-                
-                const data = await response.json();
-                
-                // 检查apps数组是否为空
-                if (!data.apps || data.apps.length === 0) {
+            if (!response.ok) {
+                if (response.status === 404) {
+                    // JSON文件不存在（可能为空）
                     showEmptyApps(letter);
-                    return;
+                } else {
+                    throw new Error(`加载失败: ${response.status}`);
                 }
-                
-                // 清空应用网格
-                appsGrid.innerHTML = '';
-                
-                // 为每个应用加载详细信息并创建卡片
-                const appPromises = data.apps.map(appName => 
-                    loadAppInfo(appName).then(appInfo => createAppCard(appInfo, appName))
-                );
-                
-                // 等待所有应用信息加载完成
-                const appCards = await Promise.allSettled(appPromises);
-                
-                // 添加成功加载的应用卡片
-                appCards.forEach(result => {
-                    if (result.status === 'fulfilled' && result.value) {
-                        appsGrid.appendChild(result.value);
-                    }
-                });
-                
-                // 如果没有成功加载的应用，显示空状态
-                if (appsGrid.children.length === 0) {
-                    showEmptyApps(letter);
-                }
-                
-            } catch (error) {
-                console.error('加载应用列表时出错:', error);
-                showError(`加载应用列表失败: ${error.message}`);
+                return;
             }
-        }
-        
-        // 加载单个应用信息
-        async function loadAppInfo(appName) {
-            try {
-                const response = await fetch(`${appName}/info.json`);
-                
-                if (!response.ok) {
-                    throw new Error(`无法加载应用信息: ${response.status}`);
-                }
-                
-                return await response.json();
-            } catch (error) {
-                console.error(`加载应用 ${appName} 信息失败:`, error);
-                // 返回一个基本的应用信息对象
-                return {
-                    name: appName,
-                    author: '未知作者',
-                    platforms: []
-                };
+            
+            const data = await response.json();
+            
+            // 检查apps数组是否为空
+            if (!data.apps || data.apps.length === 0) {
+                showEmptyApps(letter);
+                return;
             }
+            
+            // 清空应用网格
+            appsGrid.innerHTML = '';
+            
+            // 为每个应用加载详细信息并创建卡片
+            const appPromises = data.apps.map(appName => 
+                loadAppInfo(appName).then(appInfo => createAppCard(appInfo, appName))
+            );
+            
+            // 等待所有应用信息加载完成
+            const appCards = await Promise.allSettled(appPromises);
+            
+            // 添加成功加载的应用卡片
+            appCards.forEach(result => {
+                if (result.status === 'fulfilled' && result.value) {
+                    appsGrid.appendChild(result.value);
+                }
+            });
+            
+            // 如果没有成功加载的应用，显示空状态
+            if (appsGrid.children.length === 0) {
+                showEmptyApps(letter);
+            }
+            
+        } catch (error) {
+            console.error('加载应用列表时出错:', error);
+            showError(`加载应用列表失败: ${error.message}`);
         }
-        
-        // 创建应用卡片
-        function createAppCard(appInfo, appName) {
-            const appCard = document.createElement('div');
-            appCard.className = 'app-card';
+    }
+    
+    // 加载单个应用信息
+    async function loadAppInfo(appName) {
+        try {
+            const response = await fetch(`${appName}/info.json`);
             
-            // 创建图标容器
-            const iconContainer = document.createElement('div');
-            iconContainer.className = 'app-icon-container';
+            if (!response.ok) {
+                throw new Error(`无法加载应用信息: ${response.status}`);
+            }
             
-            const icon = document.createElement('div');
-            icon.className = 'app-icon';
-            
-            // 尝试加载应用图标
-            const iconImg = document.createElement('img');
-            iconImg.src = `${appName}/icon.png`;
-            iconImg.alt = `${appInfo.name} 图标`;
-            iconImg.onerror = () => {
-                // 图标加载失败时使用首字母
-                const firstChar = appInfo.name.charAt(0).toUpperCase();
-                icon.innerHTML = `<div>${firstChar}</div>`;
-                iconImg.style.display = 'none';
+            return await response.json();
+        } catch (error) {
+            console.error(`加载应用 ${appName} 信息失败:`, error);
+            // 返回一个基本的应用信息对象
+            return {
+                name: appName,
+                author: '未知作者',
+                platforms: []
             };
-            
-            icon.appendChild(iconImg);
-            iconContainer.appendChild(icon);
-            
-            // 创建应用信息区域
-            const appInfoDiv = document.createElement('div');
-            appInfoDiv.className = 'app-info';
-            
-            const name = document.createElement('div');
-            name.className = 'app-name';
-            name.textContent = appInfo.name || appName;
-            
-            const author = document.createElement('div');
-            author.className = 'app-author';
-            author.textContent = appInfo.author || '未知作者';
-            
-            const platforms = document.createElement('div');
-            platforms.className = 'app-platforms';
-            
-            // 添加平台标签（最多显示3个）
-            if (appInfo.platforms && appInfo.platforms.length > 0) {
-                appInfo.platforms.slice(0, 3).forEach(platform => {
-                    const platformTag = document.createElement('span');
-                    platformTag.className = 'platform-tag';
-                    platformTag.textContent = platform;
-                    platforms.appendChild(platformTag);
-                });
-                
-                // 如果平台超过3个，显示更多
-                if (appInfo.platforms.length > 3) {
-                    const moreTag = document.createElement('span');
-                    moreTag.className = 'platform-tag';
-                    moreTag.textContent = `+${appInfo.platforms.length - 3}`;
-                    platforms.appendChild(moreTag);
-                }
-            }
-            
-            appInfoDiv.appendChild(name);
-            appInfoDiv.appendChild(author);
-            appInfoDiv.appendChild(platforms);
-            
-            // 组装卡片
-            appCard.appendChild(iconContainer);
-            appCard.appendChild(appInfoDiv);
-            
-            // 添加点击事件，跳转到应用详情页
-            appCard.addEventListener('click', () => {
-                window.location.href = `app.html?app=${encodeURIComponent(appInfo.name || appName)}&path=${encodeURIComponent(appName)}`;
+        }
+    }
+    
+    // 创建应用卡片
+    function createAppCard(appInfo, appName) {
+        const appCard = document.createElement('div');
+        appCard.className = 'app-card';
+        
+        // 创建图标容器
+        const iconContainer = document.createElement('div');
+        iconContainer.className = 'app-icon-container';
+        
+        const icon = document.createElement('div');
+        icon.className = 'app-icon';
+        
+        // 尝试加载应用图标
+        const iconImg = document.createElement('img');
+        iconImg.src = `${appName}/icon.png`;
+        iconImg.alt = `${appInfo.name} 图标`;
+        iconImg.onerror = () => {
+            // 图标加载失败时使用首字母
+            const firstChar = appInfo.name.charAt(0).toUpperCase();
+            icon.innerHTML = `<div>${firstChar}</div>`;
+            iconImg.style.display = 'none';
+        };
+        
+        icon.appendChild(iconImg);
+        iconContainer.appendChild(icon);
+        
+        // 创建应用信息区域
+        const appInfoDiv = document.createElement('div');
+        appInfoDiv.className = 'app-info';
+        
+        const name = document.createElement('div');
+        name.className = 'app-name';
+        name.textContent = appInfo.name || appName;
+        
+        const author = document.createElement('div');
+        author.className = 'app-author';
+        author.textContent = appInfo.author || '未知作者';
+        
+        const platforms = document.createElement('div');
+        platforms.className = 'app-platforms';
+        
+        // 添加平台标签（最多显示3个）
+        if (appInfo.platforms && appInfo.platforms.length > 0) {
+            appInfo.platforms.slice(0, 3).forEach(platform => {
+                const platformTag = document.createElement('span');
+                platformTag.className = 'platform-tag';
+                platformTag.textContent = platform;
+                platforms.appendChild(platformTag);
             });
             
-            return appCard;
-        }
-        
-        // 显示空应用状态
-        function showEmptyApps(letter) {
-            const appsGrid = document.getElementById('apps-grid');
-            appsGrid.innerHTML = `
-                <div class="empty-state">
-                    <div class="empty-state-icon">📁</div>
-                    <p>没有找到以 "${letter}" 开头的应用</p>
-                    <p style="font-size: 14px; margin-top: 10px;">该字母下暂无应用，试试其他字母</p>
-                </div>
-            `;
-        }
-        
-        // 显示错误信息
-        function showError(message) {
-            const appsGrid = document.getElementById('apps-grid');
-            appsGrid.innerHTML = `
-                <div class="empty-state">
-                    <div class="empty-state-icon">⚠️</div>
-                    <p>${message}</p>
-                    <p style="font-size: 14px; margin-top: 10px;">请检查网络连接或稍后再试</p>
-                </div>
-            `;
-        }
-        
-        // 初始化页面
-        function initPage() {
-            // 初始化字母网格
-            initLetters();
-            
-            // 绑定返回按钮事件
-            document.getElementById('back-to-letters').addEventListener('click', () => {
-                document.getElementById('letters-section').style.display = 'block';
-                document.getElementById('apps-section').classList.add('hidden');
-            });
-            
-            // 检查URL参数，如果有letter参数则直接加载对应字母的应用
-            const urlParams = new URLSearchParams(window.location.search);
-            const initialLetter = urlParams.get('letter');
-            
-            if (initialLetter && /^[A-Za-z]$/.test(initialLetter)) {
-                loadAppsByLetter(initialLetter.toUpperCase());
+            // 如果平台超过3个，显示更多
+            if (appInfo.platforms.length > 3) {
+                const moreTag = document.createElement('span');
+                moreTag.className = 'platform-tag';
+                moreTag.textContent = `+${appInfo.platforms.length - 3}`;
+                platforms.appendChild(moreTag);
             }
         }
         
-        // 页面加载完成后初始化
-        document.addEventListener('DOMContentLoaded', initPage);
-    </script>
+        appInfoDiv.appendChild(name);
+        appInfoDiv.appendChild(author);
+        appInfoDiv.appendChild(platforms);
+        
+        // 组装卡片
+        appCard.appendChild(iconContainer);
+        appCard.appendChild(appInfoDiv);
+        
+        // 添加点击事件，跳转到应用详情页
+        appCard.addEventListener('click', () => {
+            window.location.href = `app.html?app=${encodeURIComponent(appInfo.name || appName)}&path=${encodeURIComponent(appName)}`;
+        });
+        
+        return appCard;
+    }
+    
+    // 显示空应用状态
+    function showEmptyApps(letter) {
+        const appsGrid = document.getElementById('apps-grid');
+        appsGrid.innerHTML = `
+            <div class="empty-state">
+                <div class="empty-state-icon">📁</div>
+                <p>没有找到以 "${letter}" 开头的应用</p>
+                <p style="font-size: 14px; margin-top: 10px;">该字母下暂无应用，试试其他字母</p>
+            </div>
+        `;
+    }
+    
+    // 显示错误信息
+    function showError(message) {
+        const appsGrid = document.getElementById('apps-grid');
+        appsGrid.innerHTML = `
+            <div class="empty-state">
+                <div class="empty-state-icon">⚠️</div>
+                <p>${message}</p>
+                <p style="font-size: 14px; margin-top: 10px;">请检查网络连接或稍后再试</p>
+            </div>
+        `;
+    }
+    
+    // 初始化页面
+    function initPage() {
+        // 初始化字母网格
+        initLetters();
+        
+        // 绑定返回按钮事件
+        document.getElementById('back-to-letters').addEventListener('click', () => {
+            document.getElementById('letters-section').style.display = 'block';
+            document.getElementById('apps-section').classList.add('hidden');
+        });
+        
+        // 检查URL参数，如果有letter参数则直接加载对应字母的应用
+        const urlParams = new URLSearchParams(window.location.search);
+        const initialLetter = urlParams.get('letter');
+        
+        if (initialLetter && /^[A-Za-z]$/.test(initialLetter)) {
+            loadAppsByLetter(initialLetter.toUpperCase());
+        }
+    }
+    
+    // 页面加载完成后初始化
+    document.addEventListener('DOMContentLoaded', initPage);
+</script>
 </body>
 </html>
