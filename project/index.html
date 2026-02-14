@@ -476,7 +476,8 @@
             const jsonPath = `ProjectList/${mappedLetter}.json`;
             console.log('请求路径:', jsonPath);
             
-            const response = await fetch(jsonPath);
+            // 添加时间戳避免缓存
+            const response = await fetch(`${jsonPath}?t=${Date.now()}`);
             
             if (!response.ok) {
                 if (response.status === 404) {
@@ -528,7 +529,8 @@
     // 加载单个应用信息
     async function loadAppInfo(appName) {
         try {
-            const response = await fetch(`${appName}/info.json`);
+            // 添加时间戳避免缓存
+            const response = await fetch(`${appName}/info.json?t=${Date.now()}`);
             
             if (!response.ok) {
                 throw new Error(`无法加载应用信息: ${response.status}`);
@@ -559,7 +561,8 @@
         
         // 尝试加载应用图标
         const iconImg = document.createElement('img');
-        iconImg.src = `${appName}/icon.png`;
+        // 添加时间戳避免缓存
+        iconImg.src = `${appName}/icon.png?t=${Date.now()}`;
         iconImg.alt = `${appInfo.name} 图标`;
         iconImg.onerror = () => {
             icon.innerHTML = appInfo.name.charAt(0).toUpperCase();
@@ -604,7 +607,7 @@
         
         // 添加点击事件
         appCard.addEventListener('click', () => {
-            window.location.href = `app.html?app=${encodeURIComponent(appInfo.name || appName)}&path=${encodeURIComponent(appName)}`;
+            window.location.href = `app.html?app=${encodeURIComponent(appInfo.name || appName)}&path=${encodeURIComponent(appName)}&t=${Date.now()}`;
         });
         
         return appCard;
