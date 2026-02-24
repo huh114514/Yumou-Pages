@@ -476,105 +476,49 @@
             }
         }
         
-        // 更新应用信息显示
-        function updateAppInfoDisplay(appInfo, appPath) {
-            // 更新标题栏
-            document.getElementById('title-app-name').textContent = appInfo.name;
-            
-            // 更新基本信息
-            document.getElementById('app-name').textContent = appInfo.name;
-            document.getElementById('app-author').textContent = `作者：${appInfo.author}`;
-            document.getElementById('app-version').textContent = `版本 ${appInfo.Version}`;
-            
-            // 更新详细信息
-            document.getElementById('info-name').textContent = appInfo.name;
-            document.getElementById('info-author').textContent = appInfo.author;
-            document.getElementById('info-version').textContent = `v${appInfo.Version}`;
-            
-            // 更新平台信息
-            const platformsContainer = document.getElementById('platforms-container');
-            const infoPlatforms = document.getElementById('info-platforms');
-            
-            platformsContainer.innerHTML = '';
-            infoPlatforms.textContent = appInfo.platforms.join(', ');
-            
-            appInfo.platforms.forEach(platform => {
-                const platformTag = document.createElement('div');
-                platformTag.className = 'platform-tag';
-                platformTag.textContent = platform;
-                platformsContainer.appendChild(platformTag);
-            });
-            
-            // 更新开发者网站信息
-            const authorWebsite = document.getElementById('author-website');
-            const projectWebsite = document.getElementById('project-website');
-            
-            if (appInfo.Websites && appInfo.Websites.Auhtor) {
-                authorWebsite.innerHTML = `<a href="https://${appInfo.Websites.Auhtor}" target="_blank" class="website-link">${appInfo.Websites.Auhtor}</a>`;
-            } else {
-                authorWebsite.textContent = '无';
-            }
-            
-            if (appInfo.Websites && appInfo.Websites.Project) {
-                projectWebsite.innerHTML = `<a href="https://${appInfo.Websites.Project}" target="_blank" class="website-link">${appInfo.Websites.Project}</a>`;
-            } else {
-                projectWebsite.textContent = '无';
-            }
-            
-            // 更新下载按钮
-            updateDownloadButtons(appInfo, appPath);
-            
-            // 更新页面标题
-            document.title = `${appInfo.name} - CB应用商店`;
-        }
-        
-        // 更新下载按钮
-        function updateDownloadButtons(appInfo, appPath) {
-            const downloadButtons = document.getElementById('download-buttons');
-            downloadButtons.innerHTML = '';
-            
-            // 检查各平台是否可用并添加相应按钮
-            appInfo.platforms.forEach(platform => {
-                const platformBtn = document.createElement('a');
-                platformBtn.className = 'download-btn';
-                
-                // 设置平台名称
-                const name = document.createElement('div');
-                name.className = 'platform-name';
-                name.textContent = platform;
-                
-                // 设置平台描述
-                const desc = document.createElement('div');
-                desc.className = 'platform-desc';
-                desc.textContent = platform === 'Web' ? '在线使用' : '下载安装';
-                
-                // 设置链接
-                if (platform === 'Web') {
-                    platformBtn.href = `${appPath}/Web/index.html`;
-                    platformBtn.target = '_blank';
-                } else {
-                    platformBtn.href = `${appPath}/${platform}/`;
-                    platformBtn.target = '_blank';
-                }
-                
-                // 组装按钮
-                platformBtn.appendChild(name);
-                platformBtn.appendChild(desc);
-                
-                downloadButtons.appendChild(platformBtn);
-            });
-            
-            // 如果没有可用平台，显示提示
-            if (downloadButtons.children.length === 0) {
-                const noPlatformMsg = document.createElement('div');
-                noPlatformMsg.style.textAlign = 'center';
-                noPlatformMsg.style.padding = '20px';
-                noPlatformMsg.style.color = '#666';
-                noPlatformMsg.textContent = '暂无可用版本';
-                downloadButtons.appendChild(noPlatformMsg);
-            }
-        }
-        
+// 更新应用信息显示
+function updateAppInfoDisplay(appInfo, appPath) {
+    // 更新标题栏
+    document.getElementById('title-app-name').textContent = appInfo.name;
+    
+    // 更新基本信息
+    document.getElementById('app-name').textContent = appInfo.name;
+    document.getElementById('app-author').textContent = `作者：${appInfo.author}`;
+    document.getElementById('app-version').textContent = `版本 ${appInfo.Version}`;
+    
+    // 更新平台标签（移除对 info-platforms 的引用）
+    const platformsContainer = document.getElementById('platforms-container');
+    platformsContainer.innerHTML = '';
+    
+    appInfo.platforms.forEach(platform => {
+        const platformTag = document.createElement('div');
+        platformTag.className = 'platform-tag';
+        platformTag.textContent = platform;
+        platformsContainer.appendChild(platformTag);
+    });
+    
+    // 更新开发者网站信息（元素存在）
+    const authorWebsite = document.getElementById('author-website');
+    const projectWebsite = document.getElementById('project-website');
+    
+    if (appInfo.Websites && appInfo.Websites.Auhtor) {
+        authorWebsite.innerHTML = `<a href="https://${appInfo.Websites.Auhtor}" target="_blank" class="website-link">${appInfo.Websites.Auhtor}</a>`;
+    } else {
+        authorWebsite.textContent = '无';
+    }
+    
+    if (appInfo.Websites && appInfo.Websites.Project) {
+        projectWebsite.innerHTML = `<a href="https://${appInfo.Websites.Project}" target="_blank" class="website-link">${appInfo.Websites.Project}</a>`;
+    } else {
+        projectWebsite.textContent = '无';
+    }
+    
+    // 更新下载按钮
+    updateDownloadButtons(appInfo, appPath);
+    
+    // 更新页面标题
+    document.title = `${appInfo.name} - CB应用商店`;
+}
         // 加载应用图标
         async function loadAppIcon(appPath) {
             try {
