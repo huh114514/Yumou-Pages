@@ -1,11 +1,13 @@
 {
-  "name": "FJE Web Json Editor",
+  "name": "Timer",
   "author": "Coldbox",
-  "Version": 1.0,
+  "Version": 1.1,
   "platforms": [
+    "Windows",
+    "Android",
     "Web"
   ],
   "Websites": {
-    "Auhtor": "huh114514.github.io/Yumou-Pages/"
+    
   }
 }
