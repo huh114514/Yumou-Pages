@@ -43,7 +43,3 @@ jobs:
         run: |
           git pull origin main --rebase
           git push origin main
-
-      - name: Push to GitHub
-        run: |
-          git push origin main
