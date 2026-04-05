@@ -6,18 +6,15 @@ on:
 jobs:
   sync:
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
-      actions: write  
     
     steps:
       - name: Checkout GitHub repository
         uses: actions/checkout@v4
         with:
-          token: ${{ secrets.GITHUB_TOKEN }}
+          token: ${{ secrets.PAT }}
           fetch-depth: 0
       
-      - name: Pull from Codeberg
+      - name: Sync from Codeberg
         run: |
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
@@ -31,8 +28,5 @@ jobs:
             git add .
             git commit -m "Auto-resolve: prefer Codeberg"
           fi
-      
-      - name: Push to GitHub
-        run: |
-          git pull origin main --rebase || true
+          
           git push origin main
